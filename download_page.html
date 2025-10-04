@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyWell - Download App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: white;
+            font-weight: bold;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .download-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: transform 0.3s ease;
+            margin: 10px;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .github-btn {
+            background: #24292e;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: transform 0.3s ease;
+            margin: 10px;
+        }
+
+        .github-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .features {
+            text-align: left;
+            margin: 30px 0;
+        }
+
+        .feature {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            color: #555;
+        }
+
+        .feature-icon {
+            width: 24px;
+            height: 24px;
+            background: #667eea;
+            border-radius: 50%;
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #856404;
+        }
+
+        .warning-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .version-info {
+            background: #e3f2fd;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #1565c0;
+        }
+
+        .instructions {
+            background: #d1ecf1;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #0c5460;
+            text-align: left;
+        }
+
+        .instructions h4 {
+            margin-bottom: 10px;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+        }
+
+        .instructions li {
+            margin: 5px 0;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">📚</div>
+        <h1>StudyWell</h1>
+        <p class="subtitle">Your Ultimate Study Companion</p>
+        
+        <div class="version-info">
+            <strong>Version:</strong> 1.0.0+1<br>
+            <strong>Package:</strong> com.example.studywell
+        </div>
+
+        <div class="download-section">
+            <h3>Download StudyWell APK</h3>
+            <a href="https://github.com/Kisu-codes/studywell-download/releases/download/v1.0.0/app-debug.apk" class="download-btn" download="StudyWell-v1.0.0.apk">
+                📱 Download APK
+            </a>
+            <br>
+            <a href="https://github.com/Kisu-codes/studywell-download/releases" class="github-btn" target="_blank">
+                🔗 View on GitHub
+            </a>
+        </div>
+
+        <div class="features">
+            <h3>App Features:</h3>
+            <div class="feature">
+                <div class="feature-icon">🧠</div>
+                <span>Active Recall - Test your knowledge with interactive questions</span>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔄</div>
+                <span>Spaced Repetition - Optimize your learning schedule</span>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🗺️</div>
+                <span>Mind Mapping - Visualize your study materials</span>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">⏰</div>
+                <span>Pomodoro Timer - Focus with timed study sessions</span>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <span>Progress Tracking - Monitor your study habits</span>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">☕</div>
+                <span>Break Reminders - Stay healthy while studying</span>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h4>📱 How to Install:</h4>
+            <ol>
+                <li>Tap "Download APK" button above</li>
+                <li>Wait for download to complete</li>
+                <li>Open your phone's Settings</li>
+                <li>Go to Security → Enable "Unknown Sources"</li>
+                <li>Tap the downloaded APK file</li>
+                <li>Follow installation prompts</li>
+                <li>Launch StudyWell and start studying!</li>
+            </ol>
+        </div>
+
+        <div class="warning">
+            <div class="warning-title">⚠️ Installation Notice</div>
+            <p>This is a debug APK. For installation on Android devices:</p>
+            <ul style="margin-left: 20px; margin-top: 10px;">
+                <li>Enable "Unknown Sources" in Android Settings</li>
+                <li>Allow installation from this source</li>
+                <li>Tap the downloaded APK to install</li>
+            </ul>
+        </div>
+
+        <p style="color: #999; font-size: 0.9em; margin-top: 30px;">
+            Scan the QR code with your phone to download directly!
+        </p>
+    </div>
+
+    <script>
+        // Add click tracking (optional)
+        document.querySelector('.download-btn').addEventListener('click', function() {
+            console.log('Download initiated');
+        });
+    </script>
+</body>
+</html>
