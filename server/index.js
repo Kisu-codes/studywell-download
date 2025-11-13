@@ -141,6 +141,8 @@ async function watchNotificationPreferences() {
 async function scheduleStudyReminders(userId, preferences) {
   if (!firebaseInitialized) return;
   
+  console.log('🚀 NEW CODE VERSION - scheduleStudyReminders called');
+  
   try {
     const hour = preferences.studyReminderHour || 9;
     const minute = preferences.studyReminderMinute || 0;
