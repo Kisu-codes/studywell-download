@@ -227,27 +227,45 @@ async function scheduleStudyReminders(userId, preferences) {
           console.log(`      Scheduled for: ${scheduledDate.toISOString()}`);
           
           // Store in Firestore
-          // scheduledDate is already in UTC (converted from user's local time)
-          // To get the local date string, we need to convert UTC back to local time
-          // scheduledDate represents the UTC time, so we add timezoneOffset to get local components
-          const localTimestamp = scheduledDate.getTime() + (timezoneOffset * 60 * 60 * 1000);
-          const localDate = new Date(localTimestamp);
+          // Calculate the target date in user's local timezone (not UTC)
+          // We need to find the next occurrence of dayOfWeek at hour:minute in user's timezone
+          const nowLocal = new Date(now.getTime() + (timezoneOffset * 60 * 60 * 1000)); // Convert now to local time
+          const currentDayOfWeekLocal = nowLocal.getUTCDay() === 0 ? 7 : nowLocal.getUTCDay();
+          const currentHourLocal = nowLocal.getUTCHours();
+          const currentMinuteLocal = nowLocal.getUTCMinutes();
           
-          // Format: "YYYY-MM-DD HH:MM:SS" - Store exactly what user set, no timezone offset
-          // Use the hour and minute the user set (these are already in local time)
-          const year = localDate.getUTCFullYear();
-          const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
-          const day = String(localDate.getUTCDate()).padStart(2, '0');
-          // Store the exact time user set, without timezone conversion
+          // Calculate target date in local timezone
+          let targetDateLocal = new Date(nowLocal);
+          targetDateLocal.setUTCHours(hour, minute, 0, 0);
+          targetDateLocal.setUTCSeconds(0);
+          targetDateLocal.setUTCMilliseconds(0);
+          
+          // Adjust for day of week and week offset
+          if (currentDayOfWeekLocal === dayOfWeek) {
+            if (targetDateLocal > nowLocal) {
+              targetDateLocal.setUTCDate(targetDateLocal.getUTCDate() + (week * 7));
+            } else {
+              targetDateLocal.setUTCDate(targetDateLocal.getUTCDate() + 7 + (week * 7));
+            }
+          } else {
+            let daysUntilTarget = (dayOfWeek - currentDayOfWeekLocal + 7) % 7;
+            if (daysUntilTarget === 0) daysUntilTarget = 7;
+            targetDateLocal.setUTCDate(targetDateLocal.getUTCDate() + daysUntilTarget + (week * 7));
+          }
+          
+          // Format: "YYYY-MM-DD HH:MM:SS" - Store exactly what user set
+          const year = targetDateLocal.getUTCFullYear();
+          const month = String(targetDateLocal.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(targetDateLocal.getUTCDate()).padStart(2, '0');
           const scheduledForString = `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
           
           // scheduledDate is already the correct UTC timestamp for the cron job
           const utcTimestamp = admin.firestore.Timestamp.fromDate(scheduledDate);
           
           console.log(`   📊 Time conversion details:`);
-          console.log(`      User set: ${hour}:${minute}`);
+          console.log(`      User set: ${hour}:${minute} on day ${dayOfWeek}, week ${week}`);
+          console.log(`      Local date string: ${scheduledForString}`);
           console.log(`      UTC timestamp: ${scheduledDate.toISOString()}`);
-          console.log(`      Stored as string: ${scheduledForString}`);
           
           await db.collection('scheduled_notifications').doc(notificationId).set({
             userId: userId,
