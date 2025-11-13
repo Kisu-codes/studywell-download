@@ -344,7 +344,11 @@ async function sendFCMNotification(notification, notificationId) {
 }
 
 // Cron job: Check for due notifications every minute
+console.log('⏰ Setting up cron job to run every minute...');
 cron.schedule('* * * * *', async () => {
+  const cronStartTime = new Date().toISOString();
+  console.log(`⏰ [${cronStartTime}] Cron job triggered`);
+  
   if (!firebaseInitialized) {
     console.log('⏰ Cron job skipped: Firebase not initialized');
     return;
@@ -354,6 +358,8 @@ cron.schedule('* * * * *', async () => {
     const now = admin.firestore.Timestamp.now();
     const oneMinuteFromNow = admin.firestore.Timestamp.fromMillis(now.toMillis() + 60000);
     
+    console.log(`⏰ Checking for notifications due between ${now.toDate().toISOString()} and ${oneMinuteFromNow.toDate().toISOString()}`);
+    
     // Query only by sent=false to avoid complex index requirements
     // Filter in code for time range
     const snapshot = await db.collection('scheduled_notifications')
@@ -361,7 +367,7 @@ cron.schedule('* * * * *', async () => {
       .limit(500) // Get up to 500 unsent notifications
       .get();
     
-    console.log(`⏰ Cron job running: Found ${snapshot.size} unsent notifications`);
+    console.log(`⏰ Cron job running: Found ${snapshot.size} unsent notifications total`);
     
     // Filter in code for notifications that are due now or in the next minute
     const dueNotifications = snapshot.docs.filter(doc => {
@@ -371,8 +377,21 @@ cron.schedule('* * * * *', async () => {
       return scheduledFor >= now && scheduledFor <= oneMinuteFromNow;
     });
     
+    // Log details about first few notifications for debugging
+    if (snapshot.size > 0 && snapshot.size <= 10) {
+      snapshot.docs.slice(0, 3).forEach(doc => {
+        const data = doc.data();
+        const scheduledFor = data.scheduledFor;
+        if (scheduledFor) {
+          console.log(`   📋 Sample: ${doc.id} scheduled for ${scheduledFor.toDate().toISOString()}`);
+        }
+      });
+    }
+    
     if (dueNotifications.length > 0) {
-      console.log(`📤 Found ${dueNotifications.length} notifications to send`);
+      console.log(`📤 Found ${dueNotifications.length} notifications to send NOW`);
+    } else {
+      console.log(`   ℹ️ No notifications due in the next minute`);
     }
     
     for (const doc of dueNotifications) {
