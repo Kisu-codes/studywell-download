@@ -227,15 +227,8 @@ async function scheduleStudyReminders(userId, preferences) {
           console.log(`      Scheduled for: ${scheduledDate.toISOString()}`);
           
           // Store in Firestore - HARDCODED: Use EXACT hour and minute from user input
-          // Get today's date
-          const today = new Date();
-          const year = today.getFullYear();
-          const month = String(today.getMonth() + 1).padStart(2, '0');
-          const day = String(today.getDate()).padStart(2, '0');
-          
-          // HARDCODED: Use EXACT hour and minute - NO CONVERSION AT ALL
-          // Store as plain string with exact values user set
-          const scheduledForString = `TIME_${year}-${month}-${day}_${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+          // Just store the hour and minute as a simple string - NO DATE, NO TIMESTAMP
+          const scheduledForString = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
           
           // scheduledDate is already the correct UTC timestamp for the cron job
           const utcTimestamp = admin.firestore.Timestamp.fromDate(scheduledDate);
@@ -248,7 +241,7 @@ async function scheduleStudyReminders(userId, preferences) {
           await db.collection('scheduled_notifications').doc(notificationId).set({
             userId: userId,
             fcmToken: fcmToken,
-            scheduledFor: scheduledForString, // Store as STRING with exact hour:minute
+            scheduledFor: scheduledForString, // Store as STRING: "17:00" - just hour:minute
             scheduledForUTC: utcTimestamp, // UTC timestamp for cron job comparison
             hour: hour, // User's local hour
             minute: minute, // User's local minute
@@ -443,14 +436,32 @@ cron.schedule('* * * * *', async () => {
       }
       // If scheduledFor is a string, parse it and convert to UTC
       if (typeof scheduledFor === 'string') {
-        // Format: "TIME_YYYY-MM-DD_HH:MM:SS" (with prefix to prevent auto-conversion)
+        // Format: "HH:MM" (just hour:minute) or "TIME_YYYY-MM-DD_HH:MM:SS" (old format)
         const timezoneOffset = data.timezoneOffset !== undefined ? data.timezoneOffset : 8;
-        const match = scheduledFor.match(/TIME_(\d{4})-(\d{2})-(\d{2})_(\d{2}):(\d{2}):(\d{2})/);
-        if (match) {
-          const [, year, month, day, hour, minute] = match;
-          // Create date in user's local timezone, then convert to UTC
+        
+        // Try new format first: "HH:MM"
+        const simpleMatch = scheduledFor.match(/^(\d{2}):(\d{2})$/);
+        if (simpleMatch) {
+          const [, hourStr, minuteStr] = simpleMatch;
+          const hour = parseInt(hourStr, 10);
+          const minute = parseInt(minuteStr, 10);
+          // Use scheduledForUTC if available, otherwise calculate from hour:minute
+          if (data.scheduledForUTC) {
+            return data.scheduledForUTC >= now && data.scheduledForUTC <= oneMinuteFromNow;
+          }
+          // Fallback: use current date with hour:minute
+          const today = new Date();
+          const userLocalDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), hour, minute, 0));
+          const utcDate = new Date(userLocalDate.getTime() - (timezoneOffset * 60 * 60 * 1000));
+          const utcTimestamp = admin.firestore.Timestamp.fromDate(utcDate);
+          return utcTimestamp >= now && utcTimestamp <= oneMinuteFromNow;
+        }
+        
+        // Try old format: "TIME_YYYY-MM-DD_HH:MM:SS"
+        const oldMatch = scheduledFor.match(/TIME_(\d{4})-(\d{2})-(\d{2})_(\d{2}):(\d{2}):(\d{2})/);
+        if (oldMatch) {
+          const [, year, month, day, hour, minute] = oldMatch;
           const userLocalDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-          // Convert to UTC by subtracting timezoneOffset hours
           const utcDate = new Date(userLocalDate.getTime() - (timezoneOffset * 60 * 60 * 1000));
           const utcTimestamp = admin.firestore.Timestamp.fromDate(utcDate);
           return utcTimestamp >= now && utcTimestamp <= oneMinuteFromNow;
