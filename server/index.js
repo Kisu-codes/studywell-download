@@ -255,7 +255,9 @@ async function scheduleStudyReminders(userId, preferences) {
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });
           
-          console.log(`   💾 Stored: scheduledFor="${scheduledForString}", UTC=${utcTimestamp.toDate().toISOString()}`);
+          console.log(`   💾 Stored: scheduledFor="${scheduledForString}" (STRING), hour=${hour}, minute=${minute}`);
+          console.log(`   💾 UTC timestamp: ${utcTimestamp.toDate().toISOString()} (for cron job)`);
+          console.log(`   💾 Expected display: ${hour}:${minute} (user set)`);
           
           console.log(`   ✅ Created notification: ${notificationId}`);
           scheduledCount++;
