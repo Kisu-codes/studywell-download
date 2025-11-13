@@ -260,11 +260,15 @@ function getNextScheduledDate(now, dayOfWeek, hour, minute, weekOffset = 0) {
   // Convert user's local time to UTC by subtracting 8 hours
   const utcHour = (hour - 8 + 24) % 24; // Subtract 8 hours, handle negative
   
+  console.log(`   🌍 Timezone conversion: ${hour}:${minute} UTC+8 → ${utcHour}:${minute} UTC`);
+  
   // Calculate target date in UTC
   let targetDate = new Date(currentDate);
   targetDate.setUTCHours(utcHour, minute, 0, 0);
   targetDate.setUTCSeconds(0);
   targetDate.setUTCMilliseconds(0);
+  
+  console.log(`   📅 After UTC conversion: ${targetDate.toISOString()} (should display as ${hour}:${minute} in UTC+8)`);
   
   // If same day of week
   if (currentDayOfWeek === dayOfWeek) {
