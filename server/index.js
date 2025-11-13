@@ -225,21 +225,27 @@ async function scheduleStudyReminders(userId, preferences) {
           console.log(`      Scheduled for: ${scheduledDate.toISOString()}`);
           
           // Store in Firestore
-          // Store as string with timezone to preserve user's intended time
+          // Store scheduledFor as string to preserve user's local time (UTC+8)
           // Format: "YYYY-MM-DD HH:MM:SS UTC+8"
+          // We'll parse this string in the cron job and convert to UTC for comparison
           const year = scheduledDate.getUTCFullYear();
           const month = String(scheduledDate.getUTCMonth() + 1).padStart(2, '0');
           const day = String(scheduledDate.getUTCDate()).padStart(2, '0');
           const scheduledForString = `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00 UTC+8`;
           
-          // Also store UTC timestamp for cron job comparison
-          const utcTimestamp = admin.firestore.Timestamp.fromDate(scheduledDate);
+          // Calculate correct UTC timestamp: user's time - 8 hours
+          // If user sets 11:45 UTC+8, we need to store 03:45 UTC
+          const userLocalDate = new Date(scheduledDate);
+          userLocalDate.setUTCHours(hour, minute, 0, 0); // Set to user's local time in UTC
+          // Now subtract 8 hours to get actual UTC time
+          const actualUTCDate = new Date(userLocalDate.getTime() - (8 * 60 * 60 * 1000));
+          const utcTimestamp = admin.firestore.Timestamp.fromDate(actualUTCDate);
           
           await db.collection('scheduled_notifications').doc(notificationId).set({
             userId: userId,
             fcmToken: fcmToken,
-            scheduledFor: utcTimestamp, // UTC timestamp for cron job
-            scheduledForString: scheduledForString, // User's local time as string
+            scheduledFor: scheduledForString, // Store as string to show correct time in Firestore
+            scheduledForUTC: utcTimestamp, // UTC timestamp for cron job comparison
             hour: hour, // User's local hour (UTC+8)
             minute: minute, // User's local minute
             timezone: 'UTC+8', // Store timezone for reference
@@ -252,7 +258,7 @@ async function scheduleStudyReminders(userId, preferences) {
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });
           
-          console.log(`   💾 Stored: scheduledForString="${scheduledForString}", UTC=${utcTimestamp.toDate().toISOString()}`);
+          console.log(`   💾 Stored: scheduledFor="${scheduledForString}", UTC=${utcTimestamp.toDate().toISOString()}`);
           
           console.log(`   ✅ Created notification: ${notificationId}`);
           scheduledCount++;
@@ -419,8 +425,25 @@ cron.schedule('* * * * *', async () => {
     // Filter in code for notifications that are due now or in the next minute
     const dueNotifications = snapshot.docs.filter(doc => {
       const data = doc.data();
-      const scheduledFor = data.scheduledFor;
-      if (!scheduledFor) return false;
+      // Use scheduledForUTC if available (new format), otherwise fall back to scheduledFor (old format)
+      const scheduledFor = data.scheduledForUTC || data.scheduledFor;
+      if (!scheduledFor) {
+        console.log(`   ⚠️ Notification ${doc.id} has no scheduledFor field`);
+        return false;
+      }
+      // If scheduledFor is a string, parse it and convert to UTC
+      if (typeof scheduledFor === 'string') {
+        // Format: "YYYY-MM-DD HH:MM:SS UTC+8"
+        const match = scheduledFor.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2}) UTC\+8/);
+        if (match) {
+          const [, year, month, day, hour, minute] = match;
+          const userLocalDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+          const utcDate = new Date(userLocalDate.getTime() - (8 * 60 * 60 * 1000));
+          const utcTimestamp = admin.firestore.Timestamp.fromDate(utcDate);
+          return utcTimestamp >= now && utcTimestamp <= oneMinuteFromNow;
+        }
+      }
+      // If it's a timestamp, use it directly
       return scheduledFor >= now && scheduledFor <= oneMinuteFromNow;
     });
     
