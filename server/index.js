@@ -197,6 +197,8 @@ async function scheduleStudyReminders(userId, preferences) {
         try {
           const scheduledDate = getNextScheduledDate(now, dayOfWeek, hour, minute, week);
           
+          console.log(`   🔍 Date calculation: dayOfWeek=${dayOfWeek}, week=${week}, now=${now.toISOString()}, scheduled=${scheduledDate.toISOString()}`);
+          
           if (scheduledDate <= now) {
             skippedCount++;
             console.log(`   ⏭️ Skipping past date: ${scheduledDate.toISOString()}`);
@@ -246,28 +248,35 @@ async function scheduleStudyReminders(userId, preferences) {
 
 // Get next scheduled date
 function getNextScheduledDate(now, dayOfWeek, hour, minute, weekOffset = 0) {
-  const currentDayOfWeek = now.getDay() === 0 ? 7 : now.getDay();
-  const targetTimeToday = new Date(now);
-  targetTimeToday.setHours(hour, minute, 0, 0);
+  // Create a copy of now to avoid mutating the original
+  const currentDate = new Date(now);
+  const currentDayOfWeek = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
   
+  // Calculate target date
+  let targetDate = new Date(currentDate);
+  targetDate.setHours(hour, minute, 0, 0);
+  targetDate.setSeconds(0);
+  targetDate.setMilliseconds(0);
+  
+  // If same day of week
   if (currentDayOfWeek === dayOfWeek) {
-    if (targetTimeToday > now) {
-      const result = new Date(targetTimeToday);
-      result.setDate(result.getDate() + (weekOffset * 7));
-      return result;
+    // If target time today is in the future, use it (with week offset)
+    if (targetDate > currentDate) {
+      targetDate.setDate(targetDate.getDate() + (weekOffset * 7));
+      return targetDate;
     }
-    const nextWeek = new Date(now);
-    nextWeek.setDate(nextWeek.getDate() + 7 + (weekOffset * 7));
-    nextWeek.setHours(hour, minute, 0, 0);
-    return nextWeek;
+    // Otherwise, schedule for next week (with week offset)
+    targetDate.setDate(targetDate.getDate() + 7 + (weekOffset * 7));
+    return targetDate;
   }
   
+  // Calculate days until target day of week
   let daysUntilTarget = (dayOfWeek - currentDayOfWeek + 7) % 7;
   if (daysUntilTarget === 0) daysUntilTarget = 7;
   
-  const targetDate = new Date(now);
+  // Add days until target + week offset
   targetDate.setDate(targetDate.getDate() + daysUntilTarget + (weekOffset * 7));
-  targetDate.setHours(hour, minute, 0, 0);
+  
   return targetDate;
 }
 
