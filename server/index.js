@@ -1,9 +1,16 @@
 // Free FCM Notification Server for StudyWell
 // Deploy to Render (free tier) - no credit card needed!
+// VERSION: 2024-11-13-timezone-fix-v2
 
 const express = require('express');
 const admin = require('firebase-admin');
 const cron = require('node-cron');
+
+console.log('═══════════════════════════════════════════════════════');
+console.log('🚀 StudyWell FCM Server - VERSION: timezone-fix-v2');
+console.log('📅 Deployed: 2024-11-13');
+console.log('🔧 Features: Timezone conversion (UTC+8 → UTC)');
+console.log('═══════════════════════════════════════════════════════');
 
 const app = express();
 app.use(express.json());
