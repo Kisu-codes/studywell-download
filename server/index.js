@@ -233,21 +233,21 @@ async function scheduleStudyReminders(userId, preferences) {
           const localTimestamp = scheduledDate.getTime() + (timezoneOffset * 60 * 60 * 1000);
           const localDate = new Date(localTimestamp);
           
-          // Format: "YYYY-MM-DD HH:MM:SS UTC+X" or "YYYY-MM-DD HH:MM:SS UTC-X"
+          // Format: "YYYY-MM-DD HH:MM:SS" - Store exactly what user set, no timezone offset
           // Use the hour and minute the user set (these are already in local time)
           const year = localDate.getUTCFullYear();
           const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
           const day = String(localDate.getUTCDate()).padStart(2, '0');
-          const timezoneString = timezoneOffset >= 0 ? `UTC+${timezoneOffset}` : `UTC${timezoneOffset}`;
-          const scheduledForString = `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00 ${timezoneString}`;
+          // Store the exact time user set, without timezone conversion
+          const scheduledForString = `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
           
           // scheduledDate is already the correct UTC timestamp for the cron job
           const utcTimestamp = admin.firestore.Timestamp.fromDate(scheduledDate);
           
           console.log(`   📊 Time conversion details:`);
-          console.log(`      User set: ${hour}:${minute} ${timezoneString}`);
+          console.log(`      User set: ${hour}:${minute}`);
           console.log(`      UTC timestamp: ${scheduledDate.toISOString()}`);
-          console.log(`      Local date string: ${scheduledForString}`);
+          console.log(`      Stored as string: ${scheduledForString}`);
           
           await db.collection('scheduled_notifications').doc(notificationId).set({
             userId: userId,
@@ -443,11 +443,13 @@ cron.schedule('* * * * *', async () => {
       }
       // If scheduledFor is a string, parse it and convert to UTC
       if (typeof scheduledFor === 'string') {
-        // Format: "YYYY-MM-DD HH:MM:SS UTC+X" or "YYYY-MM-DD HH:MM:SS UTC-X"
-        const match = scheduledFor.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2}) UTC([+-])(\d+)/);
+        // Format: "YYYY-MM-DD HH:MM:SS" (no timezone, just the time user set)
+        // We need to get timezoneOffset from the notification data
+        const timezoneOffset = data.timezoneOffset !== undefined ? data.timezoneOffset : 8;
+        const match = scheduledFor.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
         if (match) {
-          const [, year, month, day, hour, minute, sign, offsetStr] = match;
-          const timezoneOffset = sign === '+' ? parseInt(offsetStr, 10) : -parseInt(offsetStr, 10);
+          const [, year, month, day, hour, minute] = match;
+          // Create date in user's local timezone, then convert to UTC
           const userLocalDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
           // Convert to UTC by subtracting timezoneOffset hours
           const utcDate = new Date(userLocalDate.getTime() - (timezoneOffset * 60 * 60 * 1000));
