@@ -225,14 +225,21 @@ async function scheduleStudyReminders(userId, preferences) {
           console.log(`      Scheduled for: ${scheduledDate.toISOString()}`);
           
           // Store in Firestore
-          // IMPORTANT: scheduledDate is already in UTC, but we need to ensure it's correct
-          // User time is UTC+8, so if user sets 11:00, we store 03:00 UTC (11-8=3)
+          // Store as string with timezone to preserve user's intended time
+          // Format: "YYYY-MM-DD HH:MM:SS UTC+8"
+          const year = scheduledDate.getUTCFullYear();
+          const month = String(scheduledDate.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(scheduledDate.getUTCDate()).padStart(2, '0');
+          const scheduledForString = `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00 UTC+8`;
+          
+          // Also store UTC timestamp for cron job comparison
           const utcTimestamp = admin.firestore.Timestamp.fromDate(scheduledDate);
           
           await db.collection('scheduled_notifications').doc(notificationId).set({
             userId: userId,
             fcmToken: fcmToken,
-            scheduledFor: utcTimestamp,
+            scheduledFor: utcTimestamp, // UTC timestamp for cron job
+            scheduledForString: scheduledForString, // User's local time as string
             hour: hour, // User's local hour (UTC+8)
             minute: minute, // User's local minute
             timezone: 'UTC+8', // Store timezone for reference
@@ -245,7 +252,7 @@ async function scheduleStudyReminders(userId, preferences) {
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });
           
-          console.log(`   💾 Stored: scheduledFor=${utcTimestamp.toDate().toISOString()} (UTC), user time=${hour}:${minute} (UTC+8)`);
+          console.log(`   💾 Stored: scheduledForString="${scheduledForString}", UTC=${utcTimestamp.toDate().toISOString()}`);
           
           console.log(`   ✅ Created notification: ${notificationId}`);
           scheduledCount++;
