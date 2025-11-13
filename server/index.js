@@ -227,22 +227,20 @@ async function scheduleStudyReminders(userId, preferences) {
           console.log(`      Scheduled for: ${scheduledDate.toISOString()}`);
           
           // Store in Firestore
-          // Store scheduledFor as string to preserve user's local time
+          // scheduledDate is already in UTC (converted from user's local time)
+          // We need to calculate the local date/time from the UTC date
+          // Add timezoneOffset hours to UTC date to get local date
+          const localDate = new Date(scheduledDate.getTime() + (timezoneOffset * 60 * 60 * 1000));
+          
           // Format: "YYYY-MM-DD HH:MM:SS UTC+X" or "YYYY-MM-DD HH:MM:SS UTC-X"
-          const year = scheduledDate.getUTCFullYear();
-          const month = String(scheduledDate.getUTCMonth() + 1).padStart(2, '0');
-          const day = String(scheduledDate.getUTCDate()).padStart(2, '0');
+          const year = localDate.getUTCFullYear();
+          const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(localDate.getUTCDate()).padStart(2, '0');
           const timezoneString = timezoneOffset >= 0 ? `UTC+${timezoneOffset}` : `UTC${timezoneOffset}`;
           const scheduledForString = `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00 ${timezoneString}`;
           
-          // Calculate correct UTC timestamp: user's time - timezoneOffset hours
-          // If user sets 11:45 UTC+8, we need to store 03:45 UTC
-          // If user sets 11:45 UTC-5, we need to store 16:45 UTC
-          const userLocalDate = new Date(scheduledDate);
-          userLocalDate.setUTCHours(hour, minute, 0, 0); // Set to user's local time in UTC
-          // Now subtract timezoneOffset hours to get actual UTC time
-          const actualUTCDate = new Date(userLocalDate.getTime() - (timezoneOffset * 60 * 60 * 1000));
-          const utcTimestamp = admin.firestore.Timestamp.fromDate(actualUTCDate);
+          // scheduledDate is already the correct UTC timestamp for the cron job
+          const utcTimestamp = admin.firestore.Timestamp.fromDate(scheduledDate);
           
           await db.collection('scheduled_notifications').doc(notificationId).set({
             userId: userId,
