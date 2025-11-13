@@ -160,6 +160,8 @@ async function scheduleStudyReminders(userId, preferences) {
     const customDays = preferences.studyReminderDays || [];
     const customMessage = preferences.customMessage || 'Time to focus on your studies.';
     const fcmToken = preferences.fcmToken;
+    // Get timezone offset from preferences (defaults to +8 for backward compatibility)
+    const timezoneOffset = preferences.timezoneOffset !== undefined ? preferences.timezoneOffset : 8;
 
     if (!fcmToken) {
       console.log(`⚠️ No FCM token for user ${userId}`);
@@ -209,7 +211,7 @@ async function scheduleStudyReminders(userId, preferences) {
     for (let week = 0; week < 8; week++) {
       for (const dayOfWeek of daysToSchedule) {
         try {
-          const scheduledDate = getNextScheduledDate(now, dayOfWeek, hour, minute, week);
+          const scheduledDate = getNextScheduledDate(now, dayOfWeek, hour, minute, week, timezoneOffset);
           
           console.log(`   🔍 Date calculation: dayOfWeek=${dayOfWeek}, week=${week}, now=${now.toISOString()}, scheduled=${scheduledDate.toISOString()}`);
           
@@ -225,20 +227,21 @@ async function scheduleStudyReminders(userId, preferences) {
           console.log(`      Scheduled for: ${scheduledDate.toISOString()}`);
           
           // Store in Firestore
-          // Store scheduledFor as string to preserve user's local time (UTC+8)
-          // Format: "YYYY-MM-DD HH:MM:SS UTC+8"
-          // We'll parse this string in the cron job and convert to UTC for comparison
+          // Store scheduledFor as string to preserve user's local time
+          // Format: "YYYY-MM-DD HH:MM:SS UTC+X" or "YYYY-MM-DD HH:MM:SS UTC-X"
           const year = scheduledDate.getUTCFullYear();
           const month = String(scheduledDate.getUTCMonth() + 1).padStart(2, '0');
           const day = String(scheduledDate.getUTCDate()).padStart(2, '0');
-          const scheduledForString = `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00 UTC+8`;
+          const timezoneString = timezoneOffset >= 0 ? `UTC+${timezoneOffset}` : `UTC${timezoneOffset}`;
+          const scheduledForString = `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00 ${timezoneString}`;
           
-          // Calculate correct UTC timestamp: user's time - 8 hours
+          // Calculate correct UTC timestamp: user's time - timezoneOffset hours
           // If user sets 11:45 UTC+8, we need to store 03:45 UTC
+          // If user sets 11:45 UTC-5, we need to store 16:45 UTC
           const userLocalDate = new Date(scheduledDate);
           userLocalDate.setUTCHours(hour, minute, 0, 0); // Set to user's local time in UTC
-          // Now subtract 8 hours to get actual UTC time
-          const actualUTCDate = new Date(userLocalDate.getTime() - (8 * 60 * 60 * 1000));
+          // Now subtract timezoneOffset hours to get actual UTC time
+          const actualUTCDate = new Date(userLocalDate.getTime() - (timezoneOffset * 60 * 60 * 1000));
           const utcTimestamp = admin.firestore.Timestamp.fromDate(actualUTCDate);
           
           await db.collection('scheduled_notifications').doc(notificationId).set({
@@ -246,9 +249,9 @@ async function scheduleStudyReminders(userId, preferences) {
             fcmToken: fcmToken,
             scheduledFor: scheduledForString, // Store as string to show correct time in Firestore
             scheduledForUTC: utcTimestamp, // UTC timestamp for cron job comparison
-            hour: hour, // User's local hour (UTC+8)
+            hour: hour, // User's local hour
             minute: minute, // User's local minute
-            timezone: 'UTC+8', // Store timezone for reference
+            timezoneOffset: timezoneOffset, // Store timezone offset for reference
             dayOfWeek: dayOfWeek,
             week: week,
             title: 'Study Time! 📚',
@@ -283,16 +286,18 @@ async function scheduleStudyReminders(userId, preferences) {
 // Get next scheduled date
 // Note: hour and minute are in user's local timezone (UTC+8 for Philippines)
 // We need to convert to UTC for storage in Firestore
-function getNextScheduledDate(now, dayOfWeek, hour, minute, weekOffset = 0) {
+function getNextScheduledDate(now, dayOfWeek, hour, minute, weekOffset = 0, timezoneOffset = 8) {
   // Create a copy of now to avoid mutating the original
   const currentDate = new Date(now);
   const currentDayOfWeek = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
   
-  // User is in UTC+8 (Philippines timezone)
-  // Convert user's local time to UTC by subtracting 8 hours
-  const utcHour = (hour - 8 + 24) % 24; // Subtract 8 hours, handle negative
+  // Convert user's local time to UTC by subtracting timezoneOffset hours
+  // If timezoneOffset is +8, subtract 8 hours
+  // If timezoneOffset is -5, subtract -5 hours (add 5 hours)
+  const utcHour = (hour - timezoneOffset + 24) % 24; // Subtract timezoneOffset hours, handle negative
   
-  console.log(`   🌍 Timezone conversion: ${hour}:${minute} UTC+8 → ${utcHour}:${minute} UTC`);
+  const timezoneString = timezoneOffset >= 0 ? `UTC+${timezoneOffset}` : `UTC${timezoneOffset}`;
+  console.log(`   🌍 Timezone conversion: ${hour}:${minute} ${timezoneString} → ${utcHour}:${minute} UTC`);
   
   // Calculate target date in UTC
   let targetDate = new Date(currentDate);
@@ -300,7 +305,7 @@ function getNextScheduledDate(now, dayOfWeek, hour, minute, weekOffset = 0) {
   targetDate.setUTCSeconds(0);
   targetDate.setUTCMilliseconds(0);
   
-  console.log(`   📅 After UTC conversion: ${targetDate.toISOString()} (should display as ${hour}:${minute} in UTC+8)`);
+  console.log(`   📅 After UTC conversion: ${targetDate.toISOString()} (should display as ${hour}:${minute} in ${timezoneString})`);
   
   // If same day of week
   if (currentDayOfWeek === dayOfWeek) {
@@ -433,12 +438,14 @@ cron.schedule('* * * * *', async () => {
       }
       // If scheduledFor is a string, parse it and convert to UTC
       if (typeof scheduledFor === 'string') {
-        // Format: "YYYY-MM-DD HH:MM:SS UTC+8"
-        const match = scheduledFor.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2}) UTC\+8/);
+        // Format: "YYYY-MM-DD HH:MM:SS UTC+X" or "YYYY-MM-DD HH:MM:SS UTC-X"
+        const match = scheduledFor.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2}) UTC([+-])(\d+)/);
         if (match) {
-          const [, year, month, day, hour, minute] = match;
+          const [, year, month, day, hour, minute, sign, offsetStr] = match;
+          const timezoneOffset = sign === '+' ? parseInt(offsetStr, 10) : -parseInt(offsetStr, 10);
           const userLocalDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-          const utcDate = new Date(userLocalDate.getTime() - (8 * 60 * 60 * 1000));
+          // Convert to UTC by subtracting timezoneOffset hours
+          const utcDate = new Date(userLocalDate.getTime() - (timezoneOffset * 60 * 60 * 1000));
           const utcTimestamp = admin.firestore.Timestamp.fromDate(utcDate);
           return utcTimestamp >= now && utcTimestamp <= oneMinuteFromNow;
         }
