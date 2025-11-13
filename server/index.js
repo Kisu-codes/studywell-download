@@ -226,56 +226,23 @@ async function scheduleStudyReminders(userId, preferences) {
           console.log(`   📝 Creating notification: ${notificationId}`);
           console.log(`      Scheduled for: ${scheduledDate.toISOString()}`);
           
-          // Store in Firestore - HARDCODED: Use exact hour:minute user set with current date
-          // Get current date in local timezone (UTC+8)
-          const nowLocal = new Date();
-          // Add 8 hours to get local time components
-          const localTime = new Date(nowLocal.getTime() + (8 * 60 * 60 * 1000));
+          // Store in Firestore - HARDCODED: Just use the hour and minute exactly as user set
+          // Get today's date (server time, but we'll use it as-is)
+          const today = new Date();
+          const year = today.getFullYear();
+          const month = String(today.getMonth() + 1).padStart(2, '0');
+          const day = String(today.getDate()).padStart(2, '0');
           
-          // Get current date components
-          let targetYear = localTime.getUTCFullYear();
-          let targetMonth = localTime.getUTCMonth() + 1;
-          let targetDay = localTime.getUTCDate();
-          
-          // Get current day of week (0=Sunday, 1=Monday, etc.)
-          const currentDay = localTime.getUTCDay();
-          const targetDayOfWeek = dayOfWeek === 7 ? 0 : dayOfWeek; // Convert 7 (Sunday) to 0
-          
-          // Calculate days to add based on dayOfWeek and week
-          let daysToAdd = 0;
-          if (currentDay === targetDayOfWeek) {
-            // Same day - if time has passed, go to next week
-            const currentHour = localTime.getUTCHours();
-            const currentMinute = localTime.getUTCMinutes();
-            if (hour < currentHour || (hour === currentHour && minute <= currentMinute)) {
-              daysToAdd = 7 + (week * 7);
-            } else {
-              daysToAdd = week * 7;
-            }
-          } else {
-            // Different day - calculate days until target day
-            let daysUntilTarget = (targetDayOfWeek - currentDay + 7) % 7;
-            if (daysUntilTarget === 0) daysUntilTarget = 7;
-            daysToAdd = daysUntilTarget + (week * 7);
-          }
-          
-          // Add days
-          const finalDate = new Date(Date.UTC(targetYear, targetMonth - 1, targetDay + daysToAdd));
-          
-          // Format: "YYYY-MM-DD HH:MM:SS" - HARDCODED: Use exact hour:minute user set
-          const year = finalDate.getUTCFullYear();
-          const month = String(finalDate.getUTCMonth() + 1).padStart(2, '0');
-          const day = String(finalDate.getUTCDate()).padStart(2, '0');
+          // HARDCODED: Use EXACT hour and minute from user input - NO CONVERSION
           const scheduledForString = `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
           
           // scheduledDate is already the correct UTC timestamp for the cron job
           const utcTimestamp = admin.firestore.Timestamp.fromDate(scheduledDate);
           
-          console.log(`   📊 Time conversion details:`);
-          console.log(`      User set: ${hour}:${minute} on day ${dayOfWeek}, week ${week}`);
-          console.log(`      UTC timestamp: ${scheduledDate.toISOString()}`);
-          console.log(`      Target local date: ${targetDateLocal.toISOString()}`);
+          console.log(`   📊 HARDCODED - Using exact values:`);
+          console.log(`      User set hour: ${hour}, minute: ${minute}`);
           console.log(`      Stored as string: ${scheduledForString}`);
+          console.log(`      UTC timestamp (for cron): ${scheduledDate.toISOString()}`);
           
           await db.collection('scheduled_notifications').doc(notificationId).set({
             userId: userId,
