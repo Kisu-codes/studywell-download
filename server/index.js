@@ -428,14 +428,27 @@ cron.schedule('* * * * *', async () => {
     // Filter in code for notifications that are due now or in the next minute
     const dueNotifications = snapshot.docs.filter(doc => {
       const data = doc.data();
-      // Use scheduledForUTC if available (new format), otherwise fall back to scheduledFor (old format)
-      const scheduledFor = data.scheduledForUTC || data.scheduledFor;
-      if (!scheduledFor) {
-        console.log(`   ⚠️ Notification ${doc.id} has no scheduledFor field`);
+      // ALWAYS use scheduledForUTC for cron job - scheduledFor is just for display
+      // scheduledFor should be a string like "18:00", scheduledForUTC is the actual timestamp
+      const scheduledForUTC = data.scheduledForUTC;
+      const scheduledFor = data.scheduledFor; // This is just for display, should be "HH:MM"
+      // Use scheduledForUTC for the cron job check
+      if (!scheduledForUTC) {
+        console.log(`   ⚠️ Notification ${doc.id} has no scheduledForUTC field`);
         return false;
       }
-      // If scheduledFor is a string, parse it and convert to UTC
+      
+      // scheduledFor is just for display (should be "HH:MM" string)
+      // scheduledForUTC is what we use for the actual time check
       if (typeof scheduledFor === 'string') {
+        console.log(`   📋 Notification ${doc.id}: scheduledFor="${scheduledFor}" (display), scheduledForUTC=${scheduledForUTC.toDate().toISOString()}`);
+      }
+      
+      // Use scheduledForUTC directly for time comparison
+      return scheduledForUTC >= now && scheduledForUTC <= oneMinuteFromNow;
+      
+      // OLD CODE BELOW - keeping for backward compatibility with old format
+      if (false && typeof scheduledFor === 'string') {
         // Format: "HH:MM" (just hour:minute) or "TIME_YYYY-MM-DD_HH:MM:SS" (old format)
         const timezoneOffset = data.timezoneOffset !== undefined ? data.timezoneOffset : 8;
         
