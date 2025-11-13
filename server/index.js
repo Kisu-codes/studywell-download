@@ -244,10 +244,9 @@ async function scheduleStudyReminders(userId, preferences) {
           
           console.log(`   📊 Time conversion details:`);
           console.log(`      User set: ${hour}:${minute} on day ${dayOfWeek}, week ${week}`);
-          console.log(`      Current local: ${nowLocal.toISOString()}`);
-          console.log(`      Target local: ${targetDateLocal.toISOString()}`);
-          console.log(`      Stored as string: ${scheduledForString}`);
           console.log(`      UTC timestamp: ${scheduledDate.toISOString()}`);
+          console.log(`      Local date: ${localDate.toISOString()}`);
+          console.log(`      Stored as string: ${scheduledForString}`);
           
           await db.collection('scheduled_notifications').doc(notificationId).set({
             userId: userId,
