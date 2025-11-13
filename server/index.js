@@ -180,6 +180,7 @@ async function scheduleStudyReminders(userId, preferences) {
         daysToSchedule = [1, 2, 3, 4, 5, 6, 7];
     }
 
+    // Use UTC time to avoid timezone issues
     const now = new Date();
     let scheduledCount = 0;
     let skippedCount = 0;
@@ -189,7 +190,8 @@ async function scheduleStudyReminders(userId, preferences) {
     console.log(`   Hour: ${hour}, Minute: ${minute}`);
     console.log(`   Frequency: ${frequency}`);
     console.log(`   Days to schedule: ${JSON.stringify(daysToSchedule)}`);
-    console.log(`   Current time: ${now.toISOString()}`);
+    console.log(`   Current time (UTC): ${now.toISOString()}`);
+    console.log(`   Current time (local): ${now.toString()}`);
 
     // Schedule for next 8 weeks
     for (let week = 0; week < 8; week++) {
@@ -247,26 +249,32 @@ async function scheduleStudyReminders(userId, preferences) {
 }
 
 // Get next scheduled date
+// Note: hour and minute are in user's local timezone (UTC+8 for Philippines)
+// We need to convert to UTC for storage in Firestore
 function getNextScheduledDate(now, dayOfWeek, hour, minute, weekOffset = 0) {
   // Create a copy of now to avoid mutating the original
   const currentDate = new Date(now);
   const currentDayOfWeek = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
   
-  // Calculate target date
+  // User is in UTC+8 (Philippines timezone)
+  // Convert user's local time to UTC by subtracting 8 hours
+  const utcHour = (hour - 8 + 24) % 24; // Subtract 8 hours, handle negative
+  
+  // Calculate target date in UTC
   let targetDate = new Date(currentDate);
-  targetDate.setHours(hour, minute, 0, 0);
-  targetDate.setSeconds(0);
-  targetDate.setMilliseconds(0);
+  targetDate.setUTCHours(utcHour, minute, 0, 0);
+  targetDate.setUTCSeconds(0);
+  targetDate.setUTCMilliseconds(0);
   
   // If same day of week
   if (currentDayOfWeek === dayOfWeek) {
     // If target time today is in the future, use it (with week offset)
     if (targetDate > currentDate) {
-      targetDate.setDate(targetDate.getDate() + (weekOffset * 7));
+      targetDate.setUTCDate(targetDate.getUTCDate() + (weekOffset * 7));
       return targetDate;
     }
     // Otherwise, schedule for next week (with week offset)
-    targetDate.setDate(targetDate.getDate() + 7 + (weekOffset * 7));
+    targetDate.setUTCDate(targetDate.getUTCDate() + 7 + (weekOffset * 7));
     return targetDate;
   }
   
@@ -274,8 +282,8 @@ function getNextScheduledDate(now, dayOfWeek, hour, minute, weekOffset = 0) {
   let daysUntilTarget = (dayOfWeek - currentDayOfWeek + 7) % 7;
   if (daysUntilTarget === 0) daysUntilTarget = 7;
   
-  // Add days until target + week offset
-  targetDate.setDate(targetDate.getDate() + daysUntilTarget + (weekOffset * 7));
+  // Add days until target + week offset (using UTC to maintain consistency)
+  targetDate.setUTCDate(targetDate.getUTCDate() + daysUntilTarget + (weekOffset * 7));
   
   return targetDate;
 }
