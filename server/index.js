@@ -299,16 +299,20 @@ function getNextScheduledDate(now, dayOfWeek, hour, minute, weekOffset = 0, time
   // Convert user's local time to UTC by subtracting timezoneOffset hours
   // If timezoneOffset is +8, subtract 8 hours
   // If timezoneOffset is -5, subtract -5 hours (add 5 hours)
-  const utcHour = (hour - timezoneOffset + 24) % 24; // Subtract timezoneOffset hours, handle negative
-  
+  // Create a date in user's local timezone first, then convert to UTC
   const timezoneString = timezoneOffset >= 0 ? `UTC+${timezoneOffset}` : `UTC${timezoneOffset}`;
-  console.log(`   🌍 Timezone conversion: ${hour}:${minute} ${timezoneString} → ${utcHour}:${minute} UTC`);
   
-  // Calculate target date in UTC
+  // Calculate target date in UTC by creating a date in local timezone and subtracting offset
   let targetDate = new Date(currentDate);
-  targetDate.setUTCHours(utcHour, minute, 0, 0);
+  // Set to user's local time (treating currentDate as if it were in local timezone)
+  targetDate.setUTCHours(hour, minute, 0, 0);
   targetDate.setUTCSeconds(0);
   targetDate.setUTCMilliseconds(0);
+  // Now subtract timezoneOffset to get actual UTC time
+  targetDate = new Date(targetDate.getTime() - (timezoneOffset * 60 * 60 * 1000));
+  
+  const utcHour = targetDate.getUTCHours();
+  console.log(`   🌍 Timezone conversion: ${hour}:${minute} ${timezoneString} → ${utcHour}:${minute} UTC`);
   
   console.log(`   📅 After UTC conversion: ${targetDate.toISOString()} (should display as ${hour}:${minute} in ${timezoneString})`);
   
