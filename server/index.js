@@ -228,11 +228,13 @@ async function scheduleStudyReminders(userId, preferences) {
           
           // Store in Firestore
           // scheduledDate is already in UTC (converted from user's local time)
-          // We need to calculate the local date/time from the UTC date
-          // Add timezoneOffset hours to UTC date to get local date
-          const localDate = new Date(scheduledDate.getTime() + (timezoneOffset * 60 * 60 * 1000));
+          // To get the local date string, we need to convert UTC back to local time
+          // scheduledDate represents the UTC time, so we add timezoneOffset to get local components
+          const localTimestamp = scheduledDate.getTime() + (timezoneOffset * 60 * 60 * 1000);
+          const localDate = new Date(localTimestamp);
           
           // Format: "YYYY-MM-DD HH:MM:SS UTC+X" or "YYYY-MM-DD HH:MM:SS UTC-X"
+          // Use the hour and minute the user set (these are already in local time)
           const year = localDate.getUTCFullYear();
           const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
           const day = String(localDate.getUTCDate()).padStart(2, '0');
@@ -241,6 +243,11 @@ async function scheduleStudyReminders(userId, preferences) {
           
           // scheduledDate is already the correct UTC timestamp for the cron job
           const utcTimestamp = admin.firestore.Timestamp.fromDate(scheduledDate);
+          
+          console.log(`   📊 Time conversion details:`);
+          console.log(`      User set: ${hour}:${minute} ${timezoneString}`);
+          console.log(`      UTC timestamp: ${scheduledDate.toISOString()}`);
+          console.log(`      Local date string: ${scheduledForString}`);
           
           await db.collection('scheduled_notifications').doc(notificationId).set({
             userId: userId,
