@@ -226,38 +226,46 @@ async function scheduleStudyReminders(userId, preferences) {
           console.log(`   📝 Creating notification: ${notificationId}`);
           console.log(`      Scheduled for: ${scheduledDate.toISOString()}`);
           
-          // Store in Firestore
-          // Calculate the target date directly in local timezone using current date + dayOfWeek/week
-          // This ensures we get the correct date without timezone conversion issues
-          const nowLocal = new Date(now.getTime() + (timezoneOffset * 60 * 60 * 1000));
-          const currentDayOfWeekLocal = nowLocal.getUTCDay() === 0 ? 7 : nowLocal.getUTCDay();
+          // Store in Firestore - HARDCODED: Use exact hour:minute user set with current date
+          // Get current date in local timezone (UTC+8)
+          const nowLocal = new Date();
+          // Add 8 hours to get local time components
+          const localTime = new Date(nowLocal.getTime() + (8 * 60 * 60 * 1000));
           
-          // Calculate target date in local timezone
-          let targetDateLocal = new Date(nowLocal);
-          targetDateLocal.setUTCHours(hour, minute, 0, 0);
-          targetDateLocal.setUTCSeconds(0);
-          targetDateLocal.setUTCMilliseconds(0);
+          // Get current date components
+          let targetYear = localTime.getUTCFullYear();
+          let targetMonth = localTime.getUTCMonth() + 1;
+          let targetDay = localTime.getUTCDate();
           
-          // Adjust for day of week and week offset
-          if (currentDayOfWeekLocal === dayOfWeek) {
-            // Same day - check if time is in the future
-            if (targetDateLocal > nowLocal) {
-              targetDateLocal.setUTCDate(targetDateLocal.getUTCDate() + (week * 7));
+          // Get current day of week (0=Sunday, 1=Monday, etc.)
+          const currentDay = localTime.getUTCDay();
+          const targetDayOfWeek = dayOfWeek === 7 ? 0 : dayOfWeek; // Convert 7 (Sunday) to 0
+          
+          // Calculate days to add based on dayOfWeek and week
+          let daysToAdd = 0;
+          if (currentDay === targetDayOfWeek) {
+            // Same day - if time has passed, go to next week
+            const currentHour = localTime.getUTCHours();
+            const currentMinute = localTime.getUTCMinutes();
+            if (hour < currentHour || (hour === currentHour && minute <= currentMinute)) {
+              daysToAdd = 7 + (week * 7);
             } else {
-              targetDateLocal.setUTCDate(targetDateLocal.getUTCDate() + 7 + (week * 7));
+              daysToAdd = week * 7;
             }
           } else {
             // Different day - calculate days until target day
-            let daysUntilTarget = (dayOfWeek - currentDayOfWeekLocal + 7) % 7;
+            let daysUntilTarget = (targetDayOfWeek - currentDay + 7) % 7;
             if (daysUntilTarget === 0) daysUntilTarget = 7;
-            targetDateLocal.setUTCDate(targetDateLocal.getUTCDate() + daysUntilTarget + (week * 7));
+            daysToAdd = daysUntilTarget + (week * 7);
           }
           
-          // Format: "YYYY-MM-DD HH:MM:SS" - Store exactly what user set
-          // Use the date from targetDateLocal and the hour:minute the user actually set
-          const year = targetDateLocal.getUTCFullYear();
-          const month = String(targetDateLocal.getUTCMonth() + 1).padStart(2, '0');
-          const day = String(targetDateLocal.getUTCDate()).padStart(2, '0');
+          // Add days
+          const finalDate = new Date(Date.UTC(targetYear, targetMonth - 1, targetDay + daysToAdd));
+          
+          // Format: "YYYY-MM-DD HH:MM:SS" - HARDCODED: Use exact hour:minute user set
+          const year = finalDate.getUTCFullYear();
+          const month = String(finalDate.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(finalDate.getUTCDate()).padStart(2, '0');
           const scheduledForString = `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
           
           // scheduledDate is already the correct UTC timestamp for the cron job
