@@ -222,12 +222,17 @@ async function scheduleStudyReminders(userId, preferences) {
           console.log(`      Scheduled for: ${scheduledDate.toISOString()}`);
           
           // Store in Firestore
+          // IMPORTANT: scheduledDate is already in UTC, but we need to ensure it's correct
+          // User time is UTC+8, so if user sets 11:00, we store 03:00 UTC (11-8=3)
+          const utcTimestamp = admin.firestore.Timestamp.fromDate(scheduledDate);
+          
           await db.collection('scheduled_notifications').doc(notificationId).set({
             userId: userId,
             fcmToken: fcmToken,
-            scheduledFor: admin.firestore.Timestamp.fromDate(scheduledDate),
-            hour: hour,
-            minute: minute,
+            scheduledFor: utcTimestamp,
+            hour: hour, // User's local hour (UTC+8)
+            minute: minute, // User's local minute
+            timezone: 'UTC+8', // Store timezone for reference
             dayOfWeek: dayOfWeek,
             week: week,
             title: 'Study Time! 📚',
@@ -236,6 +241,8 @@ async function scheduleStudyReminders(userId, preferences) {
             sent: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });
+          
+          console.log(`   💾 Stored: scheduledFor=${utcTimestamp.toDate().toISOString()} (UTC), user time=${hour}:${minute} (UTC+8)`);
           
           console.log(`   ✅ Created notification: ${notificationId}`);
           scheduledCount++;
