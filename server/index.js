@@ -226,28 +226,29 @@ async function scheduleStudyReminders(userId, preferences) {
           console.log(`   📝 Creating notification: ${notificationId}`);
           console.log(`      Scheduled for: ${scheduledDate.toISOString()}`);
           
-          // Store in Firestore - HARDCODED: Just use the hour and minute exactly as user set
-          // Get today's date (server time, but we'll use it as-is)
+          // Store in Firestore - HARDCODED: Use EXACT hour and minute from user input
+          // Get today's date
           const today = new Date();
           const year = today.getFullYear();
           const month = String(today.getMonth() + 1).padStart(2, '0');
           const day = String(today.getDate()).padStart(2, '0');
           
-          // HARDCODED: Use EXACT hour and minute from user input - NO CONVERSION
-          const scheduledForString = `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+          // HARDCODED: Use EXACT hour and minute - NO CONVERSION AT ALL
+          // Store as plain string with exact values user set
+          const scheduledForString = `TIME_${year}-${month}-${day}_${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
           
           // scheduledDate is already the correct UTC timestamp for the cron job
           const utcTimestamp = admin.firestore.Timestamp.fromDate(scheduledDate);
           
-          console.log(`   📊 HARDCODED - Using exact values:`);
-          console.log(`      User set hour: ${hour}, minute: ${minute}`);
-          console.log(`      Stored as string: ${scheduledForString}`);
+          console.log(`   📊 HARDCODED - Using EXACT values from user:`);
+          console.log(`      hour field: ${hour}, minute field: ${minute}`);
+          console.log(`      scheduledFor string: ${scheduledForString}`);
           console.log(`      UTC timestamp (for cron): ${scheduledDate.toISOString()}`);
           
           await db.collection('scheduled_notifications').doc(notificationId).set({
             userId: userId,
             fcmToken: fcmToken,
-            scheduledFor: scheduledForString, // Store as string to show correct time in Firestore
+            scheduledFor: scheduledForString, // Store as STRING with exact hour:minute
             scheduledForUTC: utcTimestamp, // UTC timestamp for cron job comparison
             hour: hour, // User's local hour
             minute: minute, // User's local minute
@@ -442,10 +443,9 @@ cron.schedule('* * * * *', async () => {
       }
       // If scheduledFor is a string, parse it and convert to UTC
       if (typeof scheduledFor === 'string') {
-        // Format: "YYYY-MM-DD HH:MM:SS" (no timezone, just the time user set)
-        // We need to get timezoneOffset from the notification data
+        // Format: "TIME_YYYY-MM-DD_HH:MM:SS" (with prefix to prevent auto-conversion)
         const timezoneOffset = data.timezoneOffset !== undefined ? data.timezoneOffset : 8;
-        const match = scheduledFor.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+        const match = scheduledFor.match(/TIME_(\d{4})-(\d{2})-(\d{2})_(\d{2}):(\d{2}):(\d{2})/);
         if (match) {
           const [, year, month, day, hour, minute] = match;
           // Create date in user's local timezone, then convert to UTC
