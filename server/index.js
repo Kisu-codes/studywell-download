@@ -182,39 +182,65 @@ async function scheduleStudyReminders(userId, preferences) {
 
     const now = new Date();
     let scheduledCount = 0;
+    let skippedCount = 0;
+    let errorCount = 0;
+
+    console.log(`📅 Scheduling for user ${userId}:`);
+    console.log(`   Hour: ${hour}, Minute: ${minute}`);
+    console.log(`   Frequency: ${frequency}`);
+    console.log(`   Days to schedule: ${JSON.stringify(daysToSchedule)}`);
+    console.log(`   Current time: ${now.toISOString()}`);
 
     // Schedule for next 8 weeks
     for (let week = 0; week < 8; week++) {
       for (const dayOfWeek of daysToSchedule) {
-        const scheduledDate = getNextScheduledDate(now, dayOfWeek, hour, minute, week);
-        
-        if (scheduledDate <= now) continue;
+        try {
+          const scheduledDate = getNextScheduledDate(now, dayOfWeek, hour, minute, week);
+          
+          if (scheduledDate <= now) {
+            skippedCount++;
+            console.log(`   ⏭️ Skipping past date: ${scheduledDate.toISOString()}`);
+            continue;
+          }
 
-        const notificationId = `study_${userId}_${dayOfWeek}_${week}`;
-        
-        // Store in Firestore
-        await db.collection('scheduled_notifications').doc(notificationId).set({
-          userId: userId,
-          fcmToken: fcmToken,
-          scheduledFor: admin.firestore.Timestamp.fromDate(scheduledDate),
-          hour: hour,
-          minute: minute,
-          dayOfWeek: dayOfWeek,
-          week: week,
-          title: 'Study Time! 📚',
-          message: customMessage,
-          type: 'study_reminder',
-          sent: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        
-        scheduledCount++;
+          const notificationId = `study_${userId}_${dayOfWeek}_${week}`;
+          
+          console.log(`   📝 Creating notification: ${notificationId}`);
+          console.log(`      Scheduled for: ${scheduledDate.toISOString()}`);
+          
+          // Store in Firestore
+          await db.collection('scheduled_notifications').doc(notificationId).set({
+            userId: userId,
+            fcmToken: fcmToken,
+            scheduledFor: admin.firestore.Timestamp.fromDate(scheduledDate),
+            hour: hour,
+            minute: minute,
+            dayOfWeek: dayOfWeek,
+            week: week,
+            title: 'Study Time! 📚',
+            message: customMessage,
+            type: 'study_reminder',
+            sent: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          
+          console.log(`   ✅ Created notification: ${notificationId}`);
+          scheduledCount++;
+        } catch (error) {
+          errorCount++;
+          console.error(`   ❌ Error creating notification for day ${dayOfWeek}, week ${week}:`, error);
+          console.error(`      Stack:`, error.stack);
+        }
       }
     }
 
-    console.log(`✅ Scheduled ${scheduledCount} notifications for user ${userId}`);
+    console.log(`✅ Scheduling complete for user ${userId}:`);
+    console.log(`   Created: ${scheduledCount}`);
+    console.log(`   Skipped (past dates): ${skippedCount}`);
+    console.log(`   Errors: ${errorCount}`);
   } catch (error) {
     console.error(`❌ Error scheduling notifications for user ${userId}:`, error);
+    console.error(`   Stack:`, error.stack);
   }
 }
 
