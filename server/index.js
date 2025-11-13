@@ -227,16 +227,37 @@ async function scheduleStudyReminders(userId, preferences) {
           console.log(`      Scheduled for: ${scheduledDate.toISOString()}`);
           
           // Store in Firestore
-          // Calculate the date string directly from scheduledDate (which is already calculated correctly)
-          // scheduledDate is in UTC, so we add timezoneOffset to get the local date components
-          const localDate = new Date(scheduledDate.getTime() + (timezoneOffset * 60 * 60 * 1000));
+          // Calculate the target date directly in local timezone using current date + dayOfWeek/week
+          // This ensures we get the correct date without timezone conversion issues
+          const nowLocal = new Date(now.getTime() + (timezoneOffset * 60 * 60 * 1000));
+          const currentDayOfWeekLocal = nowLocal.getUTCDay() === 0 ? 7 : nowLocal.getUTCDay();
+          
+          // Calculate target date in local timezone
+          let targetDateLocal = new Date(nowLocal);
+          targetDateLocal.setUTCHours(hour, minute, 0, 0);
+          targetDateLocal.setUTCSeconds(0);
+          targetDateLocal.setUTCMilliseconds(0);
+          
+          // Adjust for day of week and week offset
+          if (currentDayOfWeekLocal === dayOfWeek) {
+            // Same day - check if time is in the future
+            if (targetDateLocal > nowLocal) {
+              targetDateLocal.setUTCDate(targetDateLocal.getUTCDate() + (week * 7));
+            } else {
+              targetDateLocal.setUTCDate(targetDateLocal.getUTCDate() + 7 + (week * 7));
+            }
+          } else {
+            // Different day - calculate days until target day
+            let daysUntilTarget = (dayOfWeek - currentDayOfWeekLocal + 7) % 7;
+            if (daysUntilTarget === 0) daysUntilTarget = 7;
+            targetDateLocal.setUTCDate(targetDateLocal.getUTCDate() + daysUntilTarget + (week * 7));
+          }
           
           // Format: "YYYY-MM-DD HH:MM:SS" - Store exactly what user set
-          // Use the date from localDate conversion, but the hour:minute from user input
-          const year = localDate.getUTCFullYear();
-          const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
-          const day = String(localDate.getUTCDate()).padStart(2, '0');
-          // IMPORTANT: Use the hour and minute the user actually set, not from localDate
+          // Use the date from targetDateLocal and the hour:minute the user actually set
+          const year = targetDateLocal.getUTCFullYear();
+          const month = String(targetDateLocal.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(targetDateLocal.getUTCDate()).padStart(2, '0');
           const scheduledForString = `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
           
           // scheduledDate is already the correct UTC timestamp for the cron job
@@ -245,7 +266,7 @@ async function scheduleStudyReminders(userId, preferences) {
           console.log(`   📊 Time conversion details:`);
           console.log(`      User set: ${hour}:${minute} on day ${dayOfWeek}, week ${week}`);
           console.log(`      UTC timestamp: ${scheduledDate.toISOString()}`);
-          console.log(`      Local date: ${localDate.toISOString()}`);
+          console.log(`      Target local date: ${targetDateLocal.toISOString()}`);
           console.log(`      Stored as string: ${scheduledForString}`);
           
           await db.collection('scheduled_notifications').doc(notificationId).set({
